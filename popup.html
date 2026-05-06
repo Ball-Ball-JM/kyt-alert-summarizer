@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>KYT Alert Summarizer</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="wrap">
+    <h1><span>🔍</span> KYT Alert Summarizer</h1>
+
+    <!-- Drop / upload zone -->
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-icon">📂</div>
+      <p class="drop-main">Drag &amp; drop your CSV export here</p>
+      <p class="drop-or">— or —</p>
+      <label class="btn-file" for="fileInput">Choose File</label>
+      <input type="file" id="fileInput" accept=".csv" hidden />
+      <p class="file-label" id="fileLabel">No file selected</p>
+    </div>
+
+    <button class="btn-generate" id="genBtn" disabled>Generate Summary</button>
+
+    <!-- Output -->
+    <div class="output-wrap" id="outputWrap" hidden>
+      <div class="output-header">
+        <span>Generated Summary</span>
+        <button class="btn-copy" id="copyBtn">Copy to Clipboard</button>
+      </div>
+      <pre class="output-pre" id="outputPre"></pre>
+    </div>
+
+    <div class="err-box" id="errBox" hidden></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

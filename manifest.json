@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "KYT Alert Summarizer",
+  "version": "1.0.0",
+  "description": "Convert KYT alert CSV exports into narrative compliance summaries",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "KYT Alert Summarizer"
+  }
+}
