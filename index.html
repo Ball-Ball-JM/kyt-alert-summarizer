@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KYT Alert Summarizer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 48px 16px;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 14px;
+      padding: 32px;
+      width: 100%;
+      max-width: 720px;
+      height: fit-content;
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: #64748b;
+      margin-bottom: 24px;
+    }
+
+    /* ── Drop zone ─────────────────────────────── */
+    .drop-zone {
+      border: 2px dashed #334155;
+      border-radius: 10px;
+      padding: 36px 20px;
+      text-align: center;
+      background: #0f172a;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 14px;
+      user-select: none;
+    }
+    .drop-zone:hover,
+    .drop-zone.over   { border-color: #6366f1; background: #131f35; }
+    .drop-zone.loaded { border-color: #22c55e; border-style: solid; }
+
+    .drop-icon { font-size: 38px; margin-bottom: 10px; }
+    .drop-main { font-size: 15px; color: #cbd5e1; }
+    .drop-or   { font-size: 13px; color: #475569; margin: 8px 0; }
+
+    .btn-file {
+      display: inline-block;
+      padding: 7px 18px;
+      border-radius: 7px;
+      background: #1e293b;
+      color: #94a3b8;
+      font-size: 13px;
+      cursor: pointer;
+      border: 1px solid #475569;
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn-file:hover { background: #334155; color: #e2e8f0; }
+
+    .file-label {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #475569;
+      min-height: 18px;
+      word-break: break-all;
+    }
+    .drop-zone.loaded .file-label { color: #86efac; }
+
+    /* ── Generate button ───────────────────────── */
+    .btn-generate {
+      width: 100%;
+      padding: 13px;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 9px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.01em;
+      transition: background 0.15s, opacity 0.15s;
+      margin-bottom: 16px;
+    }
+    .btn-generate:hover:not(:disabled) { background: #4f46e5; }
+    .btn-generate:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ── Output ────────────────────────────────── */
+    .output-wrap {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+
+    .output-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      background: #0a1120;
+      border-bottom: 1px solid #334155;
+    }
+    .output-header span {
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .btn-copy {
+      padding: 5px 14px;
+      background: transparent;
+      color: #4ade80;
+      border: 1px solid #166534;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-copy:hover  { background: #14532d; }
+    .btn-copy.copied { background: #16a34a; color: #fff; border-color: #16a34a; }
+
+    .output-pre {
+      padding: 18px 20px;
+      font-family: 'SF Mono', 'Menlo', 'Fira Code', monospace;
+      font-size: 13px;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #cbd5e1;
+      max-height: 480px;
+      overflow-y: auto;
+    }
+
+    /* ── Error ─────────────────────────────────── */
+    .err-box {
+      padding: 11px 16px;
+      background: #2d1515;
+      border: 1px solid #7f1d1d;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #fca5a5;
+      margin-top: 6px;
+    }
+
+    /* ── Scrollbar ─────────────────────────────── */
+    ::-webkit-scrollbar       { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔍 KYT Alert Summarizer</h1>
+    <p class="subtitle">Drop a KYT CSV export to generate compliance narrative paragraphs — no internet required.</p>
+
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-icon">📂</div>
+      <p class="drop-main">Drag &amp; drop your CSV export here</p>
+      <p class="drop-or">— or —</p>
+      <label class="btn-file" for="fileInput">Choose File</label>
+      <input type="file" id="fileInput" accept=".csv" hidden />
+      <p class="file-label" id="fileLabel">No file selected</p>
+    </div>
+
+    <button class="btn-generate" id="genBtn" disabled>Generate Summary</button>
+
+    <div class="output-wrap" id="outputWrap" hidden>
+      <div class="output-header">
+        <span>Generated Summary</span>
+        <button class="btn-copy" id="copyBtn">Copy to Clipboard</button>
+      </div>
+      <pre class="output-pre" id="outputPre"></pre>
+    </div>
+
+    <div class="err-box" id="errBox" hidden></div>
+  </div>
+
+  <script>
+    'use strict';
+
+    let loadedAlerts = [];
+
+    // ── CSV Parsing ────────────────────────────────────────────────────────
+
+    function parseCSVLine(line) {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          inQuotes = !inQuotes;
+        } else if (ch === ',' && !inQuotes) {
+          result.push(current);
+          current = '';
+        } else {
+          current += ch;
+        }
+      }
+      result.push(current);
+      return result;
+    }
+
+    function parseCSV(rawText) {
+      const text = rawText.charCodeAt(0) === 0xFEFF ? rawText.slice(1) : rawText;
+      const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+      if (lines.length < 2) return [];
+      const headers = parseCSVLine(lines[0]).map(h => h.trim());
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const vals = parseCSVLine(lines[i]);
+        const obj = {};
+        headers.forEach((h, idx) => { obj[h] = (vals[idx] ?? '').trim(); });
+        if (obj['Alert ID']) rows.push(obj);
+      }
+      return rows;
+    }
+
+    // ── Filtering ──────────────────────────────────────────────────────────
+    //   • Exclude any row with State = INVALID
+    //   • Include everything else (WITHDRAWAL and all TRANSFER directions)
+
+    function filterAlerts(alerts) {
+      return alerts.filter(row => {
+        const state = (row['State'] || '').trim().toUpperCase();
+        return state !== 'INVALID';
+      });
+    }
+
+    // ── Grouping ───────────────────────────────────────────────────────────
+    //   One paragraph per (txCategory, exposure).
+    //   txCategory: WITHDRAWAL | DEPOSIT | OUTGOING
+    //   exposure:   DIRECT | INDIRECT
+    //   All risk entities for that group are collected inside and listed together.
+
+    function groupAlerts(alerts) {
+      const map = new Map();
+      for (const row of alerts) {
+        const alertType = (row['Alert Type'] || '').trim().toUpperCase();
+        const dir       = (row['Direction']  || '').trim().toUpperCase();
+        const exposure  = (row['Exposure']   || '').trim().toUpperCase();
+
+        let txCategory;
+        if (alertType === 'WITHDRAWAL')   txCategory = 'WITHDRAWAL';
+        else if (dir === 'RECEIVED')      txCategory = 'DEPOSIT';
+        else                              txCategory = 'OUTGOING';
+
+        const key = `${txCategory}\x00${exposure}`;
+        if (!map.has(key)) map.set(key, { txCategory, exposure, rows: [] });
+        map.get(key).rows.push(row);
+      }
+      return [...map.values()];
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+
+    function fmtDate(str) {
+      if (!str) return 'unknown date';
+      const d = new Date(str.replace(' ', 'T') + 'Z');
+      if (isNaN(d.getTime())) return str;
+      return d.toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC'
+      });
+    }
+
+    function fmtAmount(n) {
+      return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function unique(arr) { return [...new Set(arr.filter(Boolean))]; }
+
+    // Returns deduplicated risk entity labels.
+    // Direct exposure: "category - service name"
+    // Indirect / no service: "category"
+    function riskEntityLabels(rows, isDirect) {
+      const seen = new Set();
+      const out  = [];
+      for (const r of rows) {
+        const service  = (r['Service Name'] || '').trim();
+        const category = (r['Category']     || '').trim();
+        const label    = (isDirect && service) ? `${category} - ${service}` : (service || category);
+        if (label && !seen.has(label)) { seen.add(label); out.push(label); }
+      }
+      return out;
+    }
+
+    // ── Paragraph builder ──────────────────────────────────────────────────
+
+    function buildParagraph(group) {
+      const { txCategory, exposure, rows } = group;
+
+      const sorted    = [...rows].sort((a, b) => new Date(a['Transfer At']) - new Date(b['Transfer At']));
+      const firstDate = fmtDate(sorted[0]['Transfer At']);
+      const lastDate  = fmtDate(sorted[sorted.length - 1]['Transfer At']);
+      const datePart  = firstDate === lastDate ? `On ${firstDate}` : `From ${firstDate} to ${lastDate}`;
+
+      const total    = rows.reduce((s, r) => s + parseFloat(r['Alert Amount'] || '0'), 0);
+      const count    = rows.length;
+      const amtStr   = `${fmtAmount(total)} USD`;   // token name shown only in Assets Involved
+      const isDirect = exposure === 'DIRECT';
+
+      const entities = riskEntityLabels(rows, isDirect);
+      const entityStr = entities.length === 1
+        ? entities[0]
+        : entities.join(', ');
+
+      // ── WITHDRAWAL ────────────────────────────────────────────────────────
+      if (txCategory === 'WITHDRAWAL') {
+        const noun    = count === 1 ? 'withdrawal attempt' : 'withdrawal attempts';
+        const expDesc = isDirect ? 'directly to' : 'connected to';
+        return [
+          `Withdrawal Attempts`,
+          ``,
+          `${datePart}, the user made ${count} ${noun} ${expDesc} ${entityStr},`,
+          `for a total of ${amtStr} USD (at the time of the transfer).`
+        ].join('\n');
+      }
+
+      // ── DEPOSIT (RECEIVED) ────────────────────────────────────────────────
+      if (txCategory === 'DEPOSIT') {
+        const noun     = count === 1 ? 'deposit' : 'deposits';
+        const expLabel = isDirect ? 'directly from' : 'with indirect exposure to';
+        const header   = isDirect ? 'Deposits — Direct' : 'Deposits — Indirect';
+
+        const internalAddrs = unique(rows.map(r => r['Output Address']));
+        const internalAddr  = internalAddrs.length ? internalAddrs.join(', ') : 'N/A';
+        const txHashes      = unique(rows.map(r => r['Tx Hash']));
+        const extList       = txHashes.length ? txHashes.join('\n') : 'N/A';
+
+        return [
+          header,
+          ``,
+          `${datePart}, the user made ${count} ${noun} ${expLabel} ${entityStr},`,
+          `for a total of ${amtStr} USD (at the time of the transfer) to his account`,
+          `receiving address: ${internalAddr}, via the following transaction(s):`,
+          ``,
+          extList
+        ].join('\n');
+      }
+
+      // ── OUTGOING (SENT) ───────────────────────────────────────────────────
+      {
+        const noun     = count === 1 ? 'withdrawal' : 'withdrawals';
+        const expLabel = isDirect ? 'directly to' : 'with indirect exposure to';
+        const header   = isDirect ? 'Withdrawals — Direct' : 'Withdrawals — Indirect';
+
+        const extAddrs = unique(rows.map(r => r['Output Address']));
+        const extList  = extAddrs.length ? extAddrs.join('\n') : 'N/A';
+
+        return [
+          header,
+          ``,
+          `${datePart}, the user made ${count} ${noun} ${expLabel} ${entityStr},`,
+          `for a total of ${amtStr} USD (at the time of the transfer) from his account`,
+          `sending address: N/A, via the following external address(es):`,
+          ``,
+          extList
+        ].join('\n');
+      }
+    }
+
+    // ── Token summary section ──────────────────────────────────────────────
+
+    function buildTokenSummary(groups) {
+      // Collect totals per (symbol, network) per txCategory
+      const tokenMap = new Map(); // key: "SYM (NET)" → { WITHDRAWAL:0, DEPOSIT:0, OUTGOING:0 }
+
+      for (const g of groups) {
+        for (const r of g.rows) {
+          const sym  = (r['Symbol']  || '').trim();
+          const net  = (r['Network'] || '').trim();
+          const key  = net ? `${sym} (${net})` : sym;
+          const amt  = parseFloat(r['Alert Amount'] || '0');
+          if (!tokenMap.has(key)) tokenMap.set(key, { WITHDRAWAL: 0, DEPOSIT: 0, OUTGOING: 0 });
+          tokenMap.get(key)[g.txCategory] += amt;
+        }
+      }
+
+      const lines = ['Assets Involved', ''];
+      for (const [token, totals] of tokenMap) {
+        lines.push(`• ${token}`);
+        const parts = [
+          { label: 'Deposits',            val: totals.DEPOSIT    },
+          { label: 'Withdrawals',         val: totals.OUTGOING   },
+          { label: 'Withdrawal Attempts', val: totals.WITHDRAWAL }
+        ].filter(p => p.val > 0);
+
+        const maxLabel = Math.max(...parts.map(p => p.label.length));
+        for (const p of parts) {
+          lines.push(`  ${p.label.padEnd(maxLabel)}  ${fmtAmount(p.val)}`);
+        }
+        const grandTotal = totals.WITHDRAWAL + totals.DEPOSIT + totals.OUTGOING;
+        lines.push(`  ${'Total'.padEnd(maxLabel)}  ${fmtAmount(grandTotal)}`);
+        lines.push('');
+      }
+
+      return lines.join('\n').trimEnd();
+    }
+
+    // ── Summary entry point ────────────────────────────────────────────────
+
+    function buildSummary(allAlerts) {
+      const filtered = filterAlerts(allAlerts);
+      if (!filtered.length) {
+        return [
+          'No qualifying alerts found.',
+          '',
+          'Filter applied:',
+          '  • All Alert Types are included (WITHDRAWAL and TRANSFER)',
+          '  • Rows with State = INVALID are excluded'
+        ].join('\n');
+      }
+
+      const groups = groupAlerts(filtered);
+
+      // Order: DEPOSIT (direct first) → OUTGOING/Withdrawals (direct first) → WITHDRAWAL Attempts
+      const order = g => {
+        if (g.txCategory === 'DEPOSIT')  return g.exposure === 'DIRECT' ? 0 : 1;
+        if (g.txCategory === 'OUTGOING') return g.exposure === 'DIRECT' ? 2 : 3;
+        return 4; // WITHDRAWAL attempts last
+      };
+      groups.sort((a, b) => order(a) - order(b));
+
+      const DIV = '\n\n' + '─'.repeat(60) + '\n\n';
+      const tokenSection = buildTokenSummary(groups);
+      const paragraphs   = groups.map(buildParagraph).join(DIV);
+
+      return tokenSection + '\n\n' + '━'.repeat(60) + '\n\n' + paragraphs;
+    }
+
+    // ── UI wiring ──────────────────────────────────────────────────────────
+
+    const dropZone   = document.getElementById('dropZone');
+    const fileInput  = document.getElementById('fileInput');
+    const fileLabel  = document.getElementById('fileLabel');
+    const genBtn     = document.getElementById('genBtn');
+    const outputWrap = document.getElementById('outputWrap');
+    const outputPre  = document.getElementById('outputPre');
+    const copyBtn    = document.getElementById('copyBtn');
+    const errBox     = document.getElementById('errBox');
+
+    function setError(msg) { errBox.textContent = msg; errBox.hidden = !msg; }
+
+    function loadFile(file) {
+      if (!file) return;
+      if (!file.name.toLowerCase().endsWith('.csv')) { setError('Please select a .csv file.'); return; }
+      setError('');
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          loadedAlerts = parseCSV(e.target.result);
+          if (!loadedAlerts.length) { setError('The CSV appears empty or has no data rows.'); return; }
+          fileLabel.textContent = `${file.name}  —  ${loadedAlerts.length} alert${loadedAlerts.length !== 1 ? 's' : ''} loaded`;
+          dropZone.classList.add('loaded');
+          genBtn.disabled   = false;
+          outputWrap.hidden = true;
+        } catch (err) { setError(`Parse error: ${err.message}`); }
+      };
+      reader.readAsText(file);
+    }
+
+    dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('over'); });
+    dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault(); dropZone.classList.remove('over'); loadFile(e.dataTransfer.files[0]);
+    });
+    dropZone.addEventListener('click', e => {
+      if (!['LABEL', 'INPUT'].includes(e.target.tagName)) fileInput.click();
+    });
+    fileInput.addEventListener('change', () => loadFile(fileInput.files[0]));
+
+    genBtn.addEventListener('click', () => {
+      setError('');
+      try {
+        outputPre.textContent = buildSummary(loadedAlerts);
+        outputWrap.hidden = false;
+      } catch (err) { setError(`Error: ${err.message}`); }
+    });
+
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(outputPre.textContent)
+        .then(() => flash('✓ Copied!'))
+        .catch(() => {
+          const sel = window.getSelection(), range = document.createRange();
+          range.selectNodeContents(outputPre);
+          sel.removeAllRanges(); sel.addRange(range);
+          document.execCommand('copy');
+          sel.removeAllRanges();
+          flash('✓ Copied!');
+        });
+    });
+
+    function flash(label) {
+      const orig = copyBtn.textContent;
+      copyBtn.textContent = label; copyBtn.classList.add('copied');
+      setTimeout(() => { copyBtn.textContent = orig; copyBtn.classList.remove('copied'); }, 2000);
+    }
+  </script>
+</body>
+</html>
