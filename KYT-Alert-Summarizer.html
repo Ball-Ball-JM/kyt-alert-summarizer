@@ -340,11 +340,43 @@
       });
     }
 
+    function fmtDateShort(str) {
+      if (!str) return 'unknown date';
+      const d = new Date(str.replace(' ', 'T') + 'Z');
+      if (isNaN(d.getTime())) return str;
+      const dd   = String(d.getUTCDate()).padStart(2, '0');
+      const mmm  = d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' });
+      const yyyy = d.getUTCFullYear();
+      return `${dd} ${mmm} ${yyyy}`;
+    }
+
     function fmtAmount(n) {
       return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     function unique(arr) { return [...new Set(arr.filter(Boolean))]; }
+
+    // Adds 0x prefix to bare EVM addresses (40 hex chars, no prefix).
+    function formatAddr(addr) {
+      if (!addr) return '';
+      const t = addr.trim();
+      return /^[0-9a-fA-F]{40}$/.test(t) ? '0x' + t : t;
+    }
+
+    // Converts known category values to display-friendly labels.
+    function normalizeCategory(cat) {
+      if ((cat || '').trim().toLowerCase() === 'sanctioned jurisdiction')
+        return 'an entity in sanctioned jurisdictions';
+      return (cat || '').trim();
+    }
+
+    const ASSET_NAMES = {
+      'USDT':'Tether', 'USDC':'USD Coin', 'BUSD':'Binance USD',
+      'BTC':'Bitcoin', 'ETH':'Ethereum', 'BNB':'BNB',
+      'TRX':'TRON', 'MATIC':'Polygon', 'SOL':'Solana',
+      'XRP':'XRP', 'ADA':'Cardano', 'LTC':'Litecoin',
+      'DOGE':'Dogecoin', 'AVAX':'Avalanche', 'DOT':'Polkadot',
+    };
 
     // Returns deduplicated risk entity labels.
     // Direct exposure: "category - service name"
@@ -354,7 +386,7 @@
       const out  = [];
       for (const r of rows) {
         const service  = (r['Service Name'] || '').trim();
-        const category = (r['Category']     || '').trim();
+        const category = normalizeCategory(r['Category']);
         const label    = (isDirect && service) ? `${category} - ${service}` : (service || category);
         if (label && !seen.has(label)) { seen.add(label); out.push(label); }
       }
@@ -396,41 +428,28 @@
       // ── DEPOSIT (RECEIVED) ────────────────────────────────────────────────
       if (txCategory === 'DEPOSIT') {
         const noun     = count === 1 ? 'deposit' : 'deposits';
-        const expLabel = isDirect ? 'directly from' : 'with indirect exposure to';
+        const expLabel = isDirect ? 'with direct exposure to' : 'with indirect exposure to';
         const header   = isDirect ? 'Deposits — Direct' : 'Deposits — Indirect';
 
-        const internalAddrs = unique(rows.map(r => r['Output Address']));
+        const internalAddrs = unique(rows.map(r => formatAddr(r['Output Address'])));
         const internalAddr  = internalAddrs.length ? internalAddrs.join(', ') : 'N/A';
 
-        const sendingAddrs = unique(rows.map(r => loadedTransfers[r['Tx Hash']] || '').filter(Boolean));
-        let sendingPart;
-        if (sendingAddrs.length === 0) {
-          sendingPart = 'sending address: N/A';
-        } else if (sendingAddrs.length === 1) {
-          sendingPart = `sending address: ${sendingAddrs[0]}`;
-        } else if (sendingAddrs.length > 5) {
-          sendingPart = 'sending address(es): (Please refer to the attached CSV for the full list of sending addresses.)';
-        } else {
-          sendingPart = `sending address(es):\n${sendingAddrs.map(a => `• ${a}`).join('\n')}`;
-        }
-
-        const txHashes = unique(rows.map(r => r['Tx Hash']));
-        const extList  = txHashes.length === 0
+        const intermediaryAddrs = unique(
+          rows.map(r => formatAddr(loadedTransfers[r['Tx Hash']] || '')).filter(Boolean)
+        );
+        const intermediaryList = intermediaryAddrs.length === 0
           ? 'N/A'
-          : txHashes.length > 5
-            ? '(Please refer to the attached CSV for the full list of transactions.)'
-            : txHashes.map(h => `• ${h}`).join('\n');
+          : intermediaryAddrs.length > 10
+            ? 'Refer to the supporting document'
+            : intermediaryAddrs.map(a => `- ${a}`).join('\n');
 
         return [
           header,
           ``,
           `${datePart}, the user made ${count} ${noun} ${expLabel} ${entityStr},`,
           `for a total of ${amtStr} USD (at the time of the transfer) to his account`,
-          `receiving address: ${internalAddr}`,
-          sendingPart,
-          `via the following transaction(s):`,
-          ``,
-          extList
+          `receiving address: ${internalAddr}, via the following intermediary address:`,
+          intermediaryList
         ].join('\n');
       }
 
@@ -440,12 +459,12 @@
         const expLabel = isDirect ? 'directly to' : 'with indirect exposure to';
         const header   = isDirect ? 'Withdrawals — Direct' : 'Withdrawals — Indirect';
 
-        const extAddrs = unique(rows.map(r => r['Output Address']));
+        const extAddrs = unique(rows.map(r => formatAddr(r['Output Address'])));
         const extList  = extAddrs.length === 0
           ? 'N/A'
           : extAddrs.length > 5
             ? '(Please refer to the attached CSV for the full list of addresses.)'
-            : extAddrs.map(a => `• ${a}`).join('\n');
+            : extAddrs.map(a => `- ${a}`).join('\n');
 
         return [
           header,
@@ -459,42 +478,44 @@
       }
     }
 
-    // ── Token summary section ──────────────────────────────────────────────
+    // ── Report header ──────────────────────────────────────────────────────
 
-    function buildTokenSummary(groups) {
-      // Collect totals per (symbol, network) per txCategory
-      const tokenMap = new Map(); // key: "SYM (NET)" → { WITHDRAWAL:0, DEPOSIT:0, OUTGOING:0 }
+    function buildHeader(filtered) {
+      const sorted = [...filtered].sort((a, b) => new Date(a['Transfer At']) - new Date(b['Transfer At']));
+      const start  = fmtDateShort(sorted[0]['Transfer At']);
+      const end    = fmtDateShort(sorted[sorted.length - 1]['Transfer At']);
+      const dateStr = start === end ? start : `${start} - ${end}`;
 
-      for (const g of groups) {
-        for (const r of g.rows) {
-          const sym  = (r['Symbol']  || '').trim();
-          const net  = (r['Network'] || '').trim();
-          const key  = net ? `${sym} (${net})` : sym;
-          const amt  = parseFloat(r['Alert Amount'] || '0');
-          if (!tokenMap.has(key)) tokenMap.set(key, { WITHDRAWAL: 0, DEPOSIT: 0, OUTGOING: 0 });
-          tokenMap.get(key)[g.txCategory] += amt;
+      const totalUSD  = filtered.reduce((s, r) => s + parseFloat(r['Alert Amount'] || '0'), 0);
+      const amountStr = `USD $${Math.round(totalUSD).toLocaleString('en-US')}`;
+
+      const assetMap = new Map();
+      for (const r of filtered) {
+        const sym = (r['Symbol'] || '').trim();
+        if (sym && !assetMap.has(sym)) {
+          const name = ASSET_NAMES[sym] || sym;
+          assetMap.set(sym, `${name} (${sym})`);
         }
       }
+      const assetStr = assetMap.size ? [...assetMap.values()].join(', ') : 'N/A';
 
-      const lines = ['Assets Involved', ''];
-      for (const [token, totals] of tokenMap) {
-        lines.push(`• ${token}`);
-        const parts = [
-          { label: 'Deposits',            val: totals.DEPOSIT    },
-          { label: 'Withdrawals',         val: totals.OUTGOING   },
-          { label: 'Withdrawal Attempts', val: totals.WITHDRAWAL }
-        ].filter(p => p.val > 0);
-
-        const maxLabel = Math.max(...parts.map(p => p.label.length));
-        for (const p of parts) {
-          lines.push(`  ${p.label.padEnd(maxLabel)}  ${fmtAmount(p.val)}`);
-        }
-        const grandTotal = totals.WITHDRAWAL + totals.DEPOSIT + totals.OUTGOING;
-        lines.push(`  ${'Total'.padEnd(maxLabel)}  ${fmtAmount(grandTotal)}`);
-        lines.push('');
+      const txHashes = unique(filtered.map(r => (r['Tx Hash'] || '').trim()).filter(Boolean));
+      let txRef;
+      if (txHashes.length === 0) {
+        txRef = 'N/A';
+      } else if (txHashes.length > 10) {
+        txRef = 'Refer to the supporting document';
+      } else {
+        txRef = '\n' + txHashes.map(h => `- ${h}`).join('\n');
       }
 
-      return lines.join('\n').trimEnd();
+      return [
+        `Transaction Date(s): ${dateStr}`,
+        `Transaction Type: Cryptocurrency Transaction`,
+        `Transaction Amount: ${amountStr}`,
+        `Asset Type: ${assetStr}`,
+        `Transaction Reference: ${txRef}`,
+      ].join('\n');
     }
 
     // ── Summary entry point ────────────────────────────────────────────────
@@ -506,8 +527,9 @@
           'No qualifying alerts found.',
           '',
           'Filter applied:',
-          '  • All Alert Types are included (WITHDRAWAL and TRANSFER)',
-          '  • Rows with State = INVALID are excluded'
+          '  - Alert Type = WITHDRAWAL always included',
+          '  - Alert Type = TRANSFER included only when % of Transfer >= 80',
+          '  - Rows with State = INVALID or Severity = LOW are excluded'
         ].join('\n');
       }
 
@@ -517,22 +539,14 @@
       const order = g => {
         if (g.txCategory === 'DEPOSIT')  return g.exposure === 'DIRECT' ? 0 : 1;
         if (g.txCategory === 'OUTGOING') return g.exposure === 'DIRECT' ? 2 : 3;
-        return 4; // WITHDRAWAL attempts last
+        return 4;
       };
       groups.sort((a, b) => order(a) - order(b));
 
-      const allSorted  = [...filtered].sort((a, b) => new Date(a['Transfer At']) - new Date(b['Transfer At']));
-      const periodStart = fmtDate(allSorted[0]['Transfer At']);
-      const periodEnd   = fmtDate(allSorted[allSorted.length - 1]['Transfer At']);
-      const periodLine  = periodStart === periodEnd
-        ? `Transaction Period: ${periodStart}`
-        : `Transaction Period: ${periodStart} – ${periodEnd}`;
+      const header     = buildHeader(filtered);
+      const paragraphs = groups.map(buildParagraph).join('\n\n');
 
-      const DIV = '\n\n' + '─'.repeat(60) + '\n\n';
-      const tokenSection = buildTokenSummary(groups);
-      const paragraphs   = groups.map(buildParagraph).join(DIV);
-
-      return periodLine + '\n\n' + '━'.repeat(60) + '\n\n' + tokenSection + '\n\n' + '━'.repeat(60) + '\n\n' + paragraphs;
+      return header + '\n\n' + paragraphs;
     }
 
     // ── UI wiring ──────────────────────────────────────────────────────────
