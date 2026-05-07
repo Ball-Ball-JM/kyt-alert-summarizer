@@ -84,6 +84,28 @@
     }
     .drop-zone.loaded .file-label { color: #86efac; }
 
+    /* ── Transfers drop zone (secondary, optional) ── */
+    .drop-zone-sm {
+      border: 1px dashed #334155;
+      border-radius: 8px;
+      padding: 12px 16px;
+      background: #0f172a;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 14px;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .drop-zone-sm:hover,
+    .drop-zone-sm.over   { border-color: #6366f1; background: #131f35; }
+    .drop-zone-sm.loaded { border-color: #22c55e; border-style: solid; }
+    .drop-zone-sm .sm-label { flex: 1; font-size: 13px; color: #94a3b8; }
+    .drop-zone-sm .sm-label small { color: #475569; font-size: 12px; }
+    .sm-file-status { font-size: 12px; color: #475569; white-space: nowrap; }
+    .drop-zone-sm.loaded .sm-file-status { color: #86efac; }
+
     /* ── Generate button ───────────────────────── */
     .btn-generate {
       width: 100%;
@@ -184,6 +206,13 @@
       <p class="file-label" id="fileLabel">No file selected</p>
     </div>
 
+    <div class="drop-zone-sm" id="dropZone2">
+      <span class="sm-label">📎 Transfers Export <small>(optional — adds sending addresses to deposits)</small></span>
+      <label class="btn-file" for="fileInput2">Choose File</label>
+      <input type="file" id="fileInput2" accept=".csv" hidden />
+      <span class="sm-file-status" id="fileLabel2">Not loaded</span>
+    </div>
+
     <button class="btn-generate" id="genBtn" disabled>Generate Summary</button>
 
     <div class="output-wrap" id="outputWrap" hidden>
@@ -200,7 +229,8 @@
   <script>
     'use strict';
 
-    let loadedAlerts = [];
+    let loadedAlerts    = [];
+    let loadedTransfers = {}; // txHash → counterparty root address (from Transfers export)
 
     // ── CSV Parsing ────────────────────────────────────────────────────────
 
@@ -236,6 +266,23 @@
         if (obj['Alert ID']) rows.push(obj);
       }
       return rows;
+    }
+
+    function parseTransfers(rawText) {
+      const text = rawText.charCodeAt(0) === 0xFEFF ? rawText.slice(1) : rawText;
+      const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+      if (lines.length < 2) return {};
+      const headers = parseCSVLine(lines[0]).map(h => h.trim());
+      const map = {};
+      for (let i = 1; i < lines.length; i++) {
+        const vals = parseCSVLine(lines[i]);
+        const obj = {};
+        headers.forEach((h, idx) => { obj[h] = (vals[idx] ?? '').trim(); });
+        const txHash = (obj['Tx Hash'] || '').trim();
+        const sender = (obj['Counterparty Root Address'] || '').trim();
+        if (txHash && sender) map[txHash] = sender;
+      }
+      return map;
     }
 
     // ── Filtering ──────────────────────────────────────────────────────────
@@ -352,8 +399,21 @@
 
         const internalAddrs = unique(rows.map(r => r['Output Address']));
         const internalAddr  = internalAddrs.length ? internalAddrs.join(', ') : 'N/A';
-        const txHashes      = unique(rows.map(r => r['Tx Hash']));
-        const extList       = txHashes.length === 0
+
+        const sendingAddrs = unique(rows.map(r => loadedTransfers[r['Tx Hash']] || '').filter(Boolean));
+        let sendingPart;
+        if (sendingAddrs.length === 0) {
+          sendingPart = 'sending address: N/A';
+        } else if (sendingAddrs.length === 1) {
+          sendingPart = `sending address: ${sendingAddrs[0]}`;
+        } else if (sendingAddrs.length > 5) {
+          sendingPart = 'sending address(es): (Please refer to the attached CSV for the full list of sending addresses.)';
+        } else {
+          sendingPart = `sending address(es):\n${sendingAddrs.map(a => `• ${a}`).join('\n')}`;
+        }
+
+        const txHashes = unique(rows.map(r => r['Tx Hash']));
+        const extList  = txHashes.length === 0
           ? 'N/A'
           : txHashes.length > 5
             ? '(Please refer to the attached CSV for the full list of transactions.)'
@@ -364,7 +424,9 @@
           ``,
           `${datePart}, the user made ${count} ${noun} ${expLabel} ${entityStr},`,
           `for a total of ${amtStr} USD (at the time of the transfer) to his account`,
-          `receiving address: ${internalAddr}, via the following transaction(s):`,
+          `receiving address: ${internalAddr}`,
+          sendingPart,
+          `via the following transaction(s):`,
           ``,
           extList
         ].join('\n');
@@ -476,6 +538,9 @@
     const dropZone   = document.getElementById('dropZone');
     const fileInput  = document.getElementById('fileInput');
     const fileLabel  = document.getElementById('fileLabel');
+    const dropZone2  = document.getElementById('dropZone2');
+    const fileInput2 = document.getElementById('fileInput2');
+    const fileLabel2 = document.getElementById('fileLabel2');
     const genBtn     = document.getElementById('genBtn');
     const outputWrap = document.getElementById('outputWrap');
     const outputPre  = document.getElementById('outputPre');
@@ -511,6 +576,32 @@
       if (!['LABEL', 'INPUT'].includes(e.target.tagName)) fileInput.click();
     });
     fileInput.addEventListener('change', () => loadFile(fileInput.files[0]));
+
+    function loadTransfersFile(file) {
+      if (!file) return;
+      if (!file.name.toLowerCase().endsWith('.csv')) { setError('Transfers file must be a .csv file.'); return; }
+      setError('');
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          loadedTransfers = parseTransfers(e.target.result);
+          const n = Object.keys(loadedTransfers).length;
+          fileLabel2.textContent = `${file.name}  —  ${n} tx mapped`;
+          dropZone2.classList.add('loaded');
+        } catch (err) { setError(`Transfers parse error: ${err.message}`); }
+      };
+      reader.readAsText(file);
+    }
+
+    dropZone2.addEventListener('dragover',  e => { e.preventDefault(); dropZone2.classList.add('over'); });
+    dropZone2.addEventListener('dragleave', ()  => dropZone2.classList.remove('over'));
+    dropZone2.addEventListener('drop', e => {
+      e.preventDefault(); dropZone2.classList.remove('over'); loadTransfersFile(e.dataTransfer.files[0]);
+    });
+    dropZone2.addEventListener('click', e => {
+      if (!['LABEL', 'INPUT'].includes(e.target.tagName)) fileInput2.click();
+    });
+    fileInput2.addEventListener('change', () => loadTransfersFile(fileInput2.files[0]));
 
     genBtn.addEventListener('click', () => {
       setError('');
