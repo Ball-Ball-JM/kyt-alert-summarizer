@@ -245,7 +245,11 @@
     function filterAlerts(alerts) {
       return alerts.filter(row => {
         const state = (row['State'] || '').trim().toUpperCase();
-        return state !== 'INVALID';
+        if (state === 'INVALID') return false;
+        const type = (row['Alert Type'] || '').trim().toUpperCase();
+        if (type === 'WITHDRAWAL') return true;
+        if (type === 'TRANSFER') return parseFloat(row['% of Transfer'] || '0') >= 80;
+        return false;
       });
     }
 
@@ -318,7 +322,7 @@
 
       const total    = rows.reduce((s, r) => s + parseFloat(r['Alert Amount'] || '0'), 0);
       const count    = rows.length;
-      const amtStr   = `${fmtAmount(total)} USD`;   // token name shown only in Assets Involved
+      const amtStr   = fmtAmount(total);
       const isDirect = exposure === 'DIRECT';
 
       const entities = riskEntityLabels(rows, isDirect);
