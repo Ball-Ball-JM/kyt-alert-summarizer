@@ -163,15 +163,13 @@
     .btn-copy.copied { background: #16a34a; }
 
     .output-pre {
-      padding: 20px 22px;
+      padding: 24px 26px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
       font-size: 13.5px;
-      line-height: 1.85;
+      line-height: 2;
       white-space: pre-wrap;
       word-break: break-word;
       color: #1e3a5f;
-      max-height: 520px;
-      overflow-y: auto;
     }
 
     /* ── Error ─────────────────────────────────── */
@@ -418,10 +416,9 @@
         const noun    = count === 1 ? 'withdrawal attempt' : 'withdrawal attempts';
         const expDesc = isDirect ? 'directly to' : 'connected to';
         return [
-          `Withdrawal Attempts`,
+          `WITHDRAWAL ATTEMPTS`,
           ``,
-          `${datePart}, the user made ${count} ${noun} ${expDesc} ${entityStr},`,
-          `for a total of ${amtStr} USD (at the time of the transfer).`
+          `${datePart}, the user made ${count} ${noun} ${expDesc} ${entityStr}, for a total of ${amtStr} USD (at the time of the transfer).`
         ].join('\n');
       }
 
@@ -429,7 +426,7 @@
       if (txCategory === 'DEPOSIT') {
         const noun     = count === 1 ? 'deposit' : 'deposits';
         const expLabel = isDirect ? 'with direct exposure to' : 'with indirect exposure to';
-        const header   = isDirect ? 'Deposits — Direct' : 'Deposits — Indirect';
+        const header   = isDirect ? 'DEPOSITS — DIRECT' : 'DEPOSITS — INDIRECT';
 
         const internalAddrs = unique(rows.map(r => formatAddr(r['Output Address'])));
         const internalAddr  = internalAddrs.length ? internalAddrs.join(', ') : 'N/A';
@@ -438,17 +435,15 @@
           rows.map(r => formatAddr(loadedTransfers[r['Tx Hash']] || '')).filter(Boolean)
         );
         const intermediaryList = intermediaryAddrs.length === 0
-          ? 'N/A'
+          ? '  N/A'
           : intermediaryAddrs.length > 10
-            ? 'Refer to the supporting document'
-            : intermediaryAddrs.map(a => `- ${a}`).join('\n');
+            ? '  Refer to the supporting document'
+            : intermediaryAddrs.map(a => `  - ${a}`).join('\n');
 
         return [
           header,
           ``,
-          `${datePart}, the user made ${count} ${noun} ${expLabel} ${entityStr},`,
-          `for a total of ${amtStr} USD (at the time of the transfer) to his account`,
-          `receiving address: ${internalAddr}, via the following intermediary address:`,
+          `${datePart}, the user made ${count} ${noun} ${expLabel} ${entityStr}, for a total of ${amtStr} USD (at the time of the transfer) to his account receiving address: ${internalAddr}, via the following intermediary address:`,
           intermediaryList
         ].join('\n');
       }
@@ -457,22 +452,19 @@
       {
         const noun     = count === 1 ? 'withdrawal' : 'withdrawals';
         const expLabel = isDirect ? 'directly to' : 'with indirect exposure to';
-        const header   = isDirect ? 'Withdrawals — Direct' : 'Withdrawals — Indirect';
+        const header   = isDirect ? 'WITHDRAWALS — DIRECT' : 'WITHDRAWALS — INDIRECT';
 
         const extAddrs = unique(rows.map(r => formatAddr(r['Output Address'])));
         const extList  = extAddrs.length === 0
-          ? 'N/A'
+          ? '  N/A'
           : extAddrs.length > 5
-            ? '(Please refer to the attached CSV for the full list of addresses.)'
-            : extAddrs.map(a => `- ${a}`).join('\n');
+            ? '  (Please refer to the attached CSV for the full list of addresses.)'
+            : extAddrs.map(a => `  - ${a}`).join('\n');
 
         return [
           header,
           ``,
-          `${datePart}, the user made ${count} ${noun} ${expLabel} ${entityStr},`,
-          `for a total of ${amtStr} USD (at the time of the transfer) from his account,`,
-          `via the following external address(es):`,
-          ``,
+          `${datePart}, the user made ${count} ${noun} ${expLabel} ${entityStr}, for a total of ${amtStr} USD (at the time of the transfer) from his account, via the following external address(es):`,
           extList
         ].join('\n');
       }
@@ -506,15 +498,15 @@
       } else if (txHashes.length > 10) {
         txRef = 'Refer to the supporting document';
       } else {
-        txRef = '\n' + txHashes.map(h => `- ${h}`).join('\n');
+        txRef = '\n' + txHashes.map(h => `  - ${h}`).join('\n');
       }
 
       return [
-        `Transaction Date(s): ${dateStr}`,
-        `Transaction Type: Cryptocurrency Transaction`,
-        `Transaction Amount: ${amountStr}`,
-        `Asset Type: ${assetStr}`,
-        `Transaction Reference: ${txRef}`,
+        `Transaction Date(s):    ${dateStr}`,
+        `Transaction Type:       Cryptocurrency Transaction`,
+        `Transaction Amount:     ${amountStr}`,
+        `Asset Type:             ${assetStr}`,
+        `Transaction Reference:  ${txRef}`,
       ].join('\n');
     }
 
@@ -544,9 +536,9 @@
       groups.sort((a, b) => order(a) - order(b));
 
       const header     = buildHeader(filtered);
-      const paragraphs = groups.map(buildParagraph).join('\n\n');
+      const paragraphs = groups.map(buildParagraph).join('\n\n\n');
 
-      return header + '\n\n' + paragraphs;
+      return header + '\n\n\n' + paragraphs;
     }
 
     // ── UI wiring ──────────────────────────────────────────────────────────
