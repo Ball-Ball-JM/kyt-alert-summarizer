@@ -351,7 +351,11 @@
         const internalAddrs = unique(rows.map(r => r['Output Address']));
         const internalAddr  = internalAddrs.length ? internalAddrs.join(', ') : 'N/A';
         const txHashes      = unique(rows.map(r => r['Tx Hash']));
-        const extList       = txHashes.length ? txHashes.join('\n') : 'N/A';
+        const extList       = txHashes.length === 0
+          ? 'N/A'
+          : txHashes.length > 5
+            ? '(Please refer to the attached CSV for the full list of transactions.)'
+            : txHashes.map(h => `• ${h}`).join('\n');
 
         return [
           header,
@@ -371,14 +375,18 @@
         const header   = isDirect ? 'Withdrawals — Direct' : 'Withdrawals — Indirect';
 
         const extAddrs = unique(rows.map(r => r['Output Address']));
-        const extList  = extAddrs.length ? extAddrs.join('\n') : 'N/A';
+        const extList  = extAddrs.length === 0
+          ? 'N/A'
+          : extAddrs.length > 5
+            ? '(Please refer to the attached CSV for the full list of addresses.)'
+            : extAddrs.map(a => `• ${a}`).join('\n');
 
         return [
           header,
           ``,
           `${datePart}, the user made ${count} ${noun} ${expLabel} ${entityStr},`,
-          `for a total of ${amtStr} USD (at the time of the transfer) from his account`,
-          `sending address: N/A, via the following external address(es):`,
+          `for a total of ${amtStr} USD (at the time of the transfer) from his account,`,
+          `via the following external address(es):`,
           ``,
           extList
         ].join('\n');
@@ -447,11 +455,18 @@
       };
       groups.sort((a, b) => order(a) - order(b));
 
+      const allSorted  = [...filtered].sort((a, b) => new Date(a['Transfer At']) - new Date(b['Transfer At']));
+      const periodStart = fmtDate(allSorted[0]['Transfer At']);
+      const periodEnd   = fmtDate(allSorted[allSorted.length - 1]['Transfer At']);
+      const periodLine  = periodStart === periodEnd
+        ? `Transaction Period: ${periodStart}`
+        : `Transaction Period: ${periodStart} – ${periodEnd}`;
+
       const DIV = '\n\n' + '─'.repeat(60) + '\n\n';
       const tokenSection = buildTokenSummary(groups);
       const paragraphs   = groups.map(buildParagraph).join(DIV);
 
-      return tokenSection + '\n\n' + '━'.repeat(60) + '\n\n' + paragraphs;
+      return periodLine + '\n\n' + '━'.repeat(60) + '\n\n' + tokenSection + '\n\n' + '━'.repeat(60) + '\n\n' + paragraphs;
     }
 
     // ── UI wiring ──────────────────────────────────────────────────────────
