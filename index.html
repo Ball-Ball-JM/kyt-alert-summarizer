@@ -9,8 +9,8 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-      background: #0f172a;
-      color: #e2e8f0;
+      background: #dbeafe;
+      color: #1e3a5f;
       min-height: 100vh;
       display: flex;
       justify-content: center;
@@ -18,19 +18,20 @@
     }
 
     .card {
-      background: #1e293b;
-      border: 1px solid #334155;
+      background: #ffffff;
+      border: 1px solid #bfdbfe;
       border-radius: 14px;
       padding: 32px;
       width: 100%;
       max-width: 720px;
       height: fit-content;
+      box-shadow: 0 4px 24px rgba(59, 130, 246, 0.10);
     }
 
     h1 {
       font-size: 20px;
       font-weight: 700;
-      color: #f1f5f9;
+      color: #1e3a5f;
       margin-bottom: 6px;
       display: flex;
       align-items: center;
@@ -38,58 +39,58 @@
     }
     .subtitle {
       font-size: 13px;
-      color: #64748b;
+      color: #5b87b8;
       margin-bottom: 24px;
     }
 
     /* ── Drop zone ─────────────────────────────── */
     .drop-zone {
-      border: 2px dashed #334155;
+      border: 2px dashed #93c5fd;
       border-radius: 10px;
       padding: 36px 20px;
       text-align: center;
-      background: #0f172a;
+      background: #eff6ff;
       cursor: pointer;
       transition: border-color 0.15s, background 0.15s;
       margin-bottom: 14px;
       user-select: none;
     }
     .drop-zone:hover,
-    .drop-zone.over   { border-color: #6366f1; background: #131f35; }
-    .drop-zone.loaded { border-color: #22c55e; border-style: solid; }
+    .drop-zone.over   { border-color: #2563eb; background: #dbeafe; }
+    .drop-zone.loaded { border-color: #16a34a; border-style: solid; background: #f0fdf4; }
 
     .drop-icon { font-size: 38px; margin-bottom: 10px; }
-    .drop-main { font-size: 15px; color: #cbd5e1; }
-    .drop-or   { font-size: 13px; color: #475569; margin: 8px 0; }
+    .drop-main { font-size: 15px; color: #1e3a5f; }
+    .drop-or   { font-size: 13px; color: #93c5fd; margin: 8px 0; }
 
     .btn-file {
       display: inline-block;
       padding: 7px 18px;
       border-radius: 7px;
-      background: #1e293b;
-      color: #94a3b8;
+      background: #ffffff;
+      color: #2563eb;
       font-size: 13px;
       cursor: pointer;
-      border: 1px solid #475569;
-      transition: background 0.15s, color 0.15s;
+      border: 1px solid #93c5fd;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
     }
-    .btn-file:hover { background: #334155; color: #e2e8f0; }
+    .btn-file:hover { background: #eff6ff; border-color: #2563eb; }
 
     .file-label {
       margin-top: 10px;
       font-size: 12px;
-      color: #475569;
+      color: #5b87b8;
       min-height: 18px;
       word-break: break-all;
     }
-    .drop-zone.loaded .file-label { color: #86efac; }
+    .drop-zone.loaded .file-label { color: #16a34a; }
 
     /* ── Transfers drop zone (secondary, optional) ── */
     .drop-zone-sm {
-      border: 1px dashed #334155;
-      border-radius: 8px;
+      border: 1px dashed #93c5fd;
+      border-radius: 10px;
       padding: 12px 16px;
-      background: #0f172a;
+      background: #eff6ff;
       cursor: pointer;
       transition: border-color 0.15s, background 0.15s;
       margin-bottom: 14px;
@@ -99,18 +100,18 @@
       gap: 12px;
     }
     .drop-zone-sm:hover,
-    .drop-zone-sm.over   { border-color: #6366f1; background: #131f35; }
-    .drop-zone-sm.loaded { border-color: #22c55e; border-style: solid; }
-    .drop-zone-sm .sm-label { flex: 1; font-size: 13px; color: #94a3b8; }
-    .drop-zone-sm .sm-label small { color: #475569; font-size: 12px; }
-    .sm-file-status { font-size: 12px; color: #475569; white-space: nowrap; }
-    .drop-zone-sm.loaded .sm-file-status { color: #86efac; }
+    .drop-zone-sm.over   { border-color: #2563eb; background: #dbeafe; }
+    .drop-zone-sm.loaded { border-color: #16a34a; border-style: solid; background: #f0fdf4; }
+    .drop-zone-sm .sm-label { flex: 1; font-size: 13px; color: #1e3a5f; }
+    .drop-zone-sm .sm-label small { color: #5b87b8; font-size: 12px; }
+    .sm-file-status { font-size: 12px; color: #5b87b8; white-space: nowrap; }
+    .drop-zone-sm.loaded .sm-file-status { color: #16a34a; }
 
     /* ── Generate button ───────────────────────── */
     .btn-generate {
       width: 100%;
       padding: 13px;
-      background: #6366f1;
+      background: #2563eb;
       color: #fff;
       border: none;
       border-radius: 9px;
@@ -121,13 +122,13 @@
       transition: background 0.15s, opacity 0.15s;
       margin-bottom: 16px;
     }
-    .btn-generate:hover:not(:disabled) { background: #4f46e5; }
+    .btn-generate:hover:not(:disabled) { background: #1d4ed8; }
     .btn-generate:disabled { opacity: 0.35; cursor: not-allowed; }
 
     /* ── Output ────────────────────────────────── */
     .output-wrap {
-      background: #0f172a;
-      border: 1px solid #334155;
+      background: #ffffff;
+      border: 1px solid #bfdbfe;
       border-radius: 10px;
       overflow: hidden;
       margin-bottom: 10px;
@@ -138,58 +139,59 @@
       justify-content: space-between;
       align-items: center;
       padding: 10px 16px;
-      background: #0a1120;
-      border-bottom: 1px solid #334155;
+      background: #eff6ff;
+      border-bottom: 1px solid #bfdbfe;
     }
     .output-header span {
       font-size: 11px;
       font-weight: 700;
-      color: #64748b;
+      color: #5b87b8;
       text-transform: uppercase;
       letter-spacing: 0.08em;
     }
 
     .btn-copy {
-      padding: 5px 14px;
-      background: transparent;
-      color: #4ade80;
-      border: 1px solid #166534;
+      padding: 5px 18px;
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
       border-radius: 6px;
       font-size: 13px;
+      font-weight: 600;
       cursor: pointer;
       transition: background 0.15s;
     }
-    .btn-copy:hover  { background: #14532d; }
-    .btn-copy.copied { background: #16a34a; color: #fff; border-color: #16a34a; }
+    .btn-copy:hover  { background: #1d4ed8; }
+    .btn-copy.copied { background: #16a34a; }
 
     .output-pre {
-      padding: 18px 20px;
-      font-family: 'SF Mono', 'Menlo', 'Fira Code', monospace;
-      font-size: 13px;
-      line-height: 1.8;
+      padding: 20px 22px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      font-size: 13.5px;
+      line-height: 1.85;
       white-space: pre-wrap;
-      word-break: break-all;
-      color: #cbd5e1;
-      max-height: 480px;
+      word-break: break-word;
+      color: #1e3a5f;
+      max-height: 520px;
       overflow-y: auto;
     }
 
     /* ── Error ─────────────────────────────────── */
     .err-box {
       padding: 11px 16px;
-      background: #2d1515;
-      border: 1px solid #7f1d1d;
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
       border-radius: 8px;
       font-size: 13px;
-      color: #fca5a5;
+      color: #dc2626;
       margin-top: 6px;
     }
 
     /* ── Scrollbar ─────────────────────────────── */
     ::-webkit-scrollbar       { width: 6px; }
-    ::-webkit-scrollbar-track { background: #0f172a; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    ::-webkit-scrollbar-track { background: #eff6ff; }
+    ::-webkit-scrollbar-thumb { background: #93c5fd; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #60a5fa; }
   </style>
 </head>
 <body>
