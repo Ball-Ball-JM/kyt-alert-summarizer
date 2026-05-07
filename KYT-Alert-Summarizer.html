@@ -244,8 +244,10 @@
 
     function filterAlerts(alerts) {
       return alerts.filter(row => {
-        const state = (row['State'] || '').trim().toUpperCase();
+        const state    = (row['State']    || '').trim().toUpperCase();
+        const severity = (row['Severity'] || '').trim().toUpperCase();
         if (state === 'INVALID') return false;
+        if (severity === 'LOW')  return false;
         const type = (row['Alert Type'] || '').trim().toUpperCase();
         if (type === 'WITHDRAWAL') return true;
         if (type === 'TRANSFER') return parseFloat(row['% of Transfer'] || '0') >= 80;
