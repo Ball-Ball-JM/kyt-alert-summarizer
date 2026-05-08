@@ -164,11 +164,11 @@
 
     .output-pre {
       padding: 24px 26px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-      font-size: 13.5px;
-      line-height: 2;
+      font-family: 'SF Mono', 'Menlo', 'Fira Code', 'Consolas', monospace;
+      font-size: 12.5px;
+      line-height: 1.9;
       white-space: pre-wrap;
-      word-break: break-word;
+      word-break: break-all;
       color: #1e3a5f;
     }
 
@@ -485,29 +485,47 @@
       for (const r of filtered) {
         const sym = (r['Symbol'] || '').trim();
         if (sym && !assetMap.has(sym)) {
-          const name = ASSET_NAMES[sym] || sym;
-          assetMap.set(sym, `${name} (${sym})`);
+          assetMap.set(sym, `${ASSET_NAMES[sym] || sym} (${sym})`);
         }
       }
       const assetStr = assetMap.size ? [...assetMap.values()].join(', ') : 'N/A';
 
       const txHashes = unique(filtered.map(r => (r['Tx Hash'] || '').trim()).filter(Boolean));
-      let txRef;
-      if (txHashes.length === 0) {
-        txRef = 'N/A';
-      } else if (txHashes.length > 10) {
-        txRef = 'Refer to the supporting document';
-      } else {
-        txRef = '\n' + txHashes.map(h => `  - ${h}`).join('\n');
-      }
+      const txRefLines = txHashes.length === 0
+        ? ['N/A']
+        : txHashes.length > 10
+          ? ['Refer to the supporting document']
+          : txHashes.map(h => `  - ${h}`);
 
-      return [
-        `Transaction Date(s):    ${dateStr}`,
-        `Transaction Type:       Cryptocurrency Transaction`,
-        `Transaction Amount:     ${amountStr}`,
-        `Asset Type:             ${assetStr}`,
-        `Transaction Reference:  ${txRef}`,
-      ].join('\n');
+      // ── ASCII table ────────────────────────────────────────────────────────
+      const FIELDS = [
+        { label: 'Transaction Date(s)',   lines: [dateStr]                        },
+        { label: 'Transaction Type',      lines: ['Cryptocurrency Transaction']   },
+        { label: 'Transaction Amount',    lines: [amountStr]                      },
+        { label: 'Asset Type',            lines: [assetStr]                       },
+        { label: 'Transaction Reference', lines: txRefLines                       },
+      ];
+      const L = Math.max(...FIELDS.map(f => f.label.length));
+      const R = Math.max(30, ...FIELDS.flatMap(f => f.lines.map(l => l.length)));
+      const bar  = (s, m, e) => s + '─'.repeat(L + 2) + m + '─'.repeat(R + 2) + e;
+      const cell = (lbl, val) => `│ ${lbl.padEnd(L)} │ ${val.padEnd(R)} │`;
+      const cont = (val)      => `│ ${''.padEnd(L)} │ ${val.padEnd(R)} │`;
+
+      const tableRows = [bar('┌', '┬', '┐')];
+      for (const f of FIELDS) {
+        tableRows.push(cell(f.label, f.lines[0]));
+        for (let i = 1; i < f.lines.length; i++) tableRows.push(cont(f.lines[i]));
+      }
+      tableRows.push(bar('└', '┴', '┘'));
+
+      // ── Narrative summary ──────────────────────────────────────────────────
+      const categories = unique(filtered.map(r => normalizeCategory(r['Category'])).filter(Boolean));
+      const walletRef  = categories.length <= 1
+        ? `an external wallet associated with ${categories[0] || 'unknown entity'}`
+        : `multiple external wallets associated with ${categories.join(' and ')}`;
+      const narrative  = `The suspicious activity involves a series of ${assetStr} transactions totaling ${amountStr} (as of the time of transaction) from ${walletRef} between ${start} and ${end}. This activity was flagged by Elliptic / Chainalysis during real-time monitoring and retrospective analysis.`;
+
+      return tableRows.join('\n') + '\n\n' + narrative;
     }
 
     function buildSummary(allAlerts) {
