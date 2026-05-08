@@ -472,7 +472,7 @@
           ? ''
           : attemptAddrs.length > 5
             ? ' — (refer to CSV for addresses)'
-            : ' — ' + attemptAddrs.join(', ');
+            : ' - ' + attemptAddrs.join(', ');
         return [
           `WITHDRAWAL ATTEMPTS${attemptSuffix}`,
           ``,
@@ -484,7 +484,7 @@
       if (txCategory === 'DEPOSIT') {
         const noun     = count === 1 ? 'deposit' : 'deposits';
         const expLabel = isDirect ? 'with direct exposure to' : 'with indirect exposure to';
-        const header   = isDirect ? 'DEPOSITS — DIRECT' : `DEPOSITS — INDIRECT — ${entityStr}`;
+        const header   = isDirect ? 'DEPOSITS — DIRECT' : `DEPOSITS — INDIRECT - ${entityStr}`;
 
         const internalAddrs = unique(rows.map(r => formatAddr(r['Output Address'])));
         const internalAddr  = internalAddrs.length ? internalAddrs.join(', ') : 'N/A';
@@ -510,7 +510,7 @@
       {
         const noun     = count === 1 ? 'withdrawal' : 'withdrawals';
         const expLabel = isDirect ? 'directly to' : 'with indirect exposure to';
-        const header   = isDirect ? 'WITHDRAWALS — DIRECT' : `WITHDRAWALS — INDIRECT — ${entityStr}`;
+        const header   = isDirect ? 'WITHDRAWALS — DIRECT' : `WITHDRAWALS — INDIRECT - ${entityStr}`;
 
         const extAddrs = unique(rows.map(r => formatAddr(r['Output Address'])));
         const extList  = extAddrs.length === 0
