@@ -467,8 +467,14 @@
       if (txCategory === 'WITHDRAWAL') {
         const noun    = count === 1 ? 'withdrawal attempt' : 'withdrawal attempts';
         const expDesc = isDirect ? 'directly to' : 'connected to';
+        const attemptAddrs   = unique(rows.map(r => formatAddr(r['Output Address'])));
+        const attemptSuffix  = attemptAddrs.length === 0
+          ? ''
+          : attemptAddrs.length > 5
+            ? ' — (refer to CSV for addresses)'
+            : ' — ' + attemptAddrs.join(', ');
         return [
-          `WITHDRAWAL ATTEMPTS`,
+          `WITHDRAWAL ATTEMPTS${attemptSuffix}`,
           ``,
           `${datePart}, the user made ${count} ${noun} ${expDesc} ${entityStr}, for a total of ${amtStr} USD (at the time of the transfer).`
         ].join('\n');
@@ -478,7 +484,7 @@
       if (txCategory === 'DEPOSIT') {
         const noun     = count === 1 ? 'deposit' : 'deposits';
         const expLabel = isDirect ? 'with direct exposure to' : 'with indirect exposure to';
-        const header   = isDirect ? 'DEPOSITS — DIRECT' : 'DEPOSITS — INDIRECT';
+        const header   = isDirect ? 'DEPOSITS — DIRECT' : `DEPOSITS — INDIRECT — ${entityStr}`;
 
         const internalAddrs = unique(rows.map(r => formatAddr(r['Output Address'])));
         const internalAddr  = internalAddrs.length ? internalAddrs.join(', ') : 'N/A';
@@ -504,7 +510,7 @@
       {
         const noun     = count === 1 ? 'withdrawal' : 'withdrawals';
         const expLabel = isDirect ? 'directly to' : 'with indirect exposure to';
-        const header   = isDirect ? 'WITHDRAWALS — DIRECT' : 'WITHDRAWALS — INDIRECT';
+        const header   = isDirect ? 'WITHDRAWALS — DIRECT' : `WITHDRAWALS — INDIRECT — ${entityStr}`;
 
         const extAddrs = unique(rows.map(r => formatAddr(r['Output Address'])));
         const extList  = extAddrs.length === 0
@@ -562,11 +568,10 @@
     }
 
     function buildNarrative(filtered, td) {
-      const categories = unique(filtered.map(r => normalizeCategory(r['Category'])).filter(Boolean));
-      const walletRef  = categories.length <= 1
-        ? `an external wallet associated with ${categories[0] || 'unknown entity'}`
-        : `multiple external wallets associated with ${categories.join(' and ')}`;
-      return `The suspicious activity involves a series of ${td.assetStr} transactions totaling ${td.amountStr} (as of the time of transaction) from ${walletRef} between ${td.start} and ${td.end}. This activity was flagged by Elliptic / Chainalysis during real-time monitoring and retrospective analysis.`;
+      const intro       = `The suspicious activity involves a series of ${td.assetStr} transactions totaling ${td.amountStr} (as of the time of transaction) from an external wallet between ${td.start} and ${td.end}. This activity was flagged by Chainalysis / Elliptic during real-time monitoring and retrospective analysis.`;
+      const boilerplate = `Chainalysis / Elliptic, a blockchain analytics provider, utilizes proprietary clustering algorithms and attribution data to identify wallet addresses. It is important to note that screening is conducted based on information available at the time of the transaction. Should an address receive a risk designation at a later date, the wallet addresses or transactions may be flagged retrospectively.`;
+      const userLine    = `The user, [NAME] (UID ), registered on [Registration Date], is [Nationality] verified with a [Issue Country+ID type], ID number [].`;
+      return [intro, boilerplate, userLine].join('\n\n');
     }
 
     function renderReportTable(td) {
@@ -624,7 +629,14 @@
       renderReportTable(td);
       reportTableWrap.hidden = false;
 
-      reportCopyText = narrative + '\n\n\n' + paragraphs;
+      const rfi = [
+        'RFI - RESPONSE',
+        '',
+        'ACCOUNT STATUS',
+        "Upon identification of the suspicious transactions, the transaction is rejected / refunded to a clean external address, and the user's account was restricted on [Alert Triggered Date], and the account balance of USD [Account Balance] (as of the time of reporting). The user has been instructed to be off-boarded from the platform, with any remaining balance to be withdrawn."
+      ].join('\n');
+
+      reportCopyText = narrative + '\n\n\n' + paragraphs + '\n\n\n' + rfi;
       return reportCopyText;
     }
 
