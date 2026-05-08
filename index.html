@@ -162,13 +162,47 @@
     .btn-copy:hover  { background: #1d4ed8; }
     .btn-copy.copied { background: #16a34a; }
 
+    /* ── Transaction summary table ────────────── */
+    .report-table-wrap {
+      background: #ffffff;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .report-table-wrap .tbl-header {
+      padding: 10px 16px;
+      background: #eff6ff;
+      border-bottom: 1px solid #bfdbfe;
+      font-size: 11px;
+      font-weight: 700;
+      color: #5b87b8;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .report-table {
+      width: 100%; border-collapse: collapse; font-size: 13px; color: #1e3a5f;
+    }
+    .report-table td {
+      padding: 10px 16px; vertical-align: top; border-bottom: 1px solid #e8f2ff;
+    }
+    .report-table tr:last-child td { border-bottom: none; }
+    .report-table td:first-child {
+      font-weight: 600; color: #5b87b8; font-size: 12px;
+      white-space: nowrap; width: 1%; padding-right: 24px;
+    }
+    .tx-item {
+      font-family: 'SF Mono', 'Menlo', monospace;
+      font-size: 11px; display: block; line-height: 1.9; word-break: break-all;
+    }
+
     .output-pre {
-      padding: 24px 26px;
-      font-family: 'SF Mono', 'Menlo', 'Fira Code', 'Consolas', monospace;
-      font-size: 12.5px;
+      padding: 22px 24px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13.5px;
       line-height: 1.9;
       white-space: pre-wrap;
-      word-break: break-all;
+      word-break: break-word;
       color: #1e3a5f;
     }
 
@@ -215,6 +249,11 @@
 
     <button class="btn-generate" id="genBtn" disabled>Generate Summary</button>
 
+    <div class="report-table-wrap" id="reportTableWrap" hidden>
+      <div class="tbl-header">Transaction Summary</div>
+      <table class="report-table" id="reportTable"></table>
+    </div>
+
     <div class="output-wrap" id="outputWrap" hidden>
       <div class="output-header">
         <span>Generated Summary</span>
@@ -231,6 +270,7 @@
 
     let loadedAlerts    = [];
     let loadedTransfers = {}; // txHash → counterparty root address (from Transfers export)
+    let reportCopyText  = '';
 
     // ── CSV Parsing ────────────────────────────────────────────────────────
 
@@ -470,9 +510,9 @@
       }
     }
 
-    // ── Report header / Summary entry point ───────────────────────────────
+    // ── Report data builders ──────────────────────────────────────────────
 
-    function buildHeader(filtered) {
+    function buildTableData(filtered) {
       const sorted = [...filtered].sort((a, b) => new Date(a['Transfer At']) - new Date(b['Transfer At']));
       const start  = fmtDateShort(sorted[0]['Transfer At']);
       const end    = fmtDateShort(sorted[sorted.length - 1]['Transfer At']);
@@ -491,47 +531,62 @@
       const assetStr = assetMap.size ? [...assetMap.values()].join(', ') : 'N/A';
 
       const txHashes = unique(filtered.map(r => (r['Tx Hash'] || '').trim()).filter(Boolean));
-      const txRefLines = txHashes.length === 0
+      const txRefValues = txHashes.length === 0
         ? ['N/A']
         : txHashes.length > 10
           ? ['Refer to the supporting document']
-          : txHashes.map(h => `  - ${h}`);
+          : txHashes;
 
-      // ── ASCII table ────────────────────────────────────────────────────────
-      const FIELDS = [
-        { label: 'Transaction Date(s)',   lines: [dateStr]                        },
-        { label: 'Transaction Type',      lines: ['Cryptocurrency Transaction']   },
-        { label: 'Transaction Amount',    lines: [amountStr]                      },
-        { label: 'Asset Type',            lines: [assetStr]                       },
-        { label: 'Transaction Reference', lines: txRefLines                       },
-      ];
-      const L = Math.max(...FIELDS.map(f => f.label.length));
-      const R = Math.max(30, ...FIELDS.flatMap(f => f.lines.map(l => l.length)));
-      const bar  = (s, m, e) => s + '─'.repeat(L + 2) + m + '─'.repeat(R + 2) + e;
-      const cell = (lbl, val) => `│ ${lbl.padEnd(L)} │ ${val.padEnd(R)} │`;
-      const cont = (val)      => `│ ${''.padEnd(L)} │ ${val.padEnd(R)} │`;
+      return {
+        start, end, assetStr, amountStr,
+        rows: [
+          { label: 'Transaction Date(s)',   values: [dateStr],                        mono: false },
+          { label: 'Transaction Type',      values: ['Cryptocurrency Transaction'],    mono: false },
+          { label: 'Transaction Amount',    values: [amountStr],                      mono: false },
+          { label: 'Asset Type',            values: [assetStr],                       mono: false },
+          { label: 'Transaction Reference', values: txRefValues,                      mono: txHashes.length > 0 && txHashes.length <= 10 },
+        ]
+      };
+    }
 
-      const tableRows = [bar('┌', '┬', '┐')];
-      for (const f of FIELDS) {
-        tableRows.push(cell(f.label, f.lines[0]));
-        for (let i = 1; i < f.lines.length; i++) tableRows.push(cont(f.lines[i]));
-      }
-      tableRows.push(bar('└', '┴', '┘'));
-
-      // ── Narrative summary ──────────────────────────────────────────────────
+    function buildNarrative(filtered, td) {
       const categories = unique(filtered.map(r => normalizeCategory(r['Category'])).filter(Boolean));
       const walletRef  = categories.length <= 1
         ? `an external wallet associated with ${categories[0] || 'unknown entity'}`
         : `multiple external wallets associated with ${categories.join(' and ')}`;
-      const narrative  = `The suspicious activity involves a series of ${assetStr} transactions totaling ${amountStr} (as of the time of transaction) from ${walletRef} between ${start} and ${end}. This activity was flagged by Elliptic / Chainalysis during real-time monitoring and retrospective analysis.`;
-
-      return tableRows.join('\n') + '\n\n' + narrative;
+      return `The suspicious activity involves a series of ${td.assetStr} transactions totaling ${td.amountStr} (as of the time of transaction) from ${walletRef} between ${td.start} and ${td.end}. This activity was flagged by Elliptic / Chainalysis during real-time monitoring and retrospective analysis.`;
     }
 
-    function buildSummary(allAlerts) {
+    function renderReportTable(td) {
+      reportTable.innerHTML = '';
+      for (const row of td.rows) {
+        const tr  = document.createElement('tr');
+        const tdL = document.createElement('td');
+        tdL.textContent = row.label;
+        const tdR = document.createElement('td');
+        for (const v of row.values) {
+          if (row.mono) {
+            const span = document.createElement('span');
+            span.className = 'tx-item';
+            span.textContent = v;
+            tdR.appendChild(span);
+          } else {
+            tdR.appendChild(document.createTextNode(v));
+          }
+        }
+        tr.appendChild(tdL);
+        tr.appendChild(tdR);
+        reportTable.appendChild(tr);
+      }
+    }
+
+    // ── Report entry point ─────────────────────────────────────────────────
+
+    function buildReport(allAlerts) {
       const filtered = filterAlerts(allAlerts);
       if (!filtered.length) {
-        return [
+        reportTableWrap.hidden = true;
+        reportCopyText = [
           'No qualifying alerts found.',
           '',
           'Filter applied:',
@@ -539,11 +594,10 @@
           '  - Alert Type = TRANSFER included only when % of Transfer >= 80',
           '  - Rows with State = INVALID or Severity = LOW are excluded'
         ].join('\n');
+        return reportCopyText;
       }
 
       const groups = groupAlerts(filtered);
-
-      // Order: DEPOSIT (direct first) → OUTGOING/Withdrawals (direct first) → WITHDRAWAL Attempts
       const order = g => {
         if (g.txCategory === 'DEPOSIT')  return g.exposure === 'DIRECT' ? 0 : 1;
         if (g.txCategory === 'OUTGOING') return g.exposure === 'DIRECT' ? 2 : 3;
@@ -551,10 +605,15 @@
       };
       groups.sort((a, b) => order(a) - order(b));
 
-      const header     = buildHeader(filtered);
+      const td         = buildTableData(filtered);
+      const narrative  = buildNarrative(filtered, td);
       const paragraphs = groups.map(buildParagraph).join('\n\n\n');
 
-      return header + '\n\n\n' + paragraphs;
+      renderReportTable(td);
+      reportTableWrap.hidden = false;
+
+      reportCopyText = narrative + '\n\n\n' + paragraphs;
+      return reportCopyText;
     }
 
     // ── UI wiring ──────────────────────────────────────────────────────────
@@ -569,7 +628,9 @@
     const outputWrap = document.getElementById('outputWrap');
     const outputPre  = document.getElementById('outputPre');
     const copyBtn    = document.getElementById('copyBtn');
-    const errBox     = document.getElementById('errBox');
+    const errBox          = document.getElementById('errBox');
+    const reportTableWrap = document.getElementById('reportTableWrap');
+    const reportTable     = document.getElementById('reportTable');
 
     function setError(msg) { errBox.textContent = msg; errBox.hidden = !msg; }
 
@@ -585,7 +646,8 @@
           fileLabel.textContent = `${file.name}  —  ${loadedAlerts.length} alert${loadedAlerts.length !== 1 ? 's' : ''} loaded`;
           dropZone.classList.add('loaded');
           genBtn.disabled   = false;
-          outputWrap.hidden = true;
+          outputWrap.hidden      = true;
+          reportTableWrap.hidden = true;
         } catch (err) { setError(`Parse error: ${err.message}`); }
       };
       reader.readAsText(file);
@@ -630,13 +692,13 @@
     genBtn.addEventListener('click', () => {
       setError('');
       try {
-        outputPre.textContent = buildSummary(loadedAlerts);
+        outputPre.textContent = buildReport(loadedAlerts);
         outputWrap.hidden = false;
       } catch (err) { setError(`Error: ${err.message}`); }
     });
 
     copyBtn.addEventListener('click', () => {
-      navigator.clipboard.writeText(outputPre.textContent)
+      navigator.clipboard.writeText(reportCopyText)
         .then(() => flash('✓ Copied!'))
         .catch(() => {
           const sel = window.getSelection(), range = document.createRange();
