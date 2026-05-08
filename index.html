@@ -455,14 +455,8 @@
       if (txCategory === 'WITHDRAWAL') {
         const noun    = count === 1 ? 'withdrawal attempt' : 'withdrawal attempts';
         const expDesc = isDirect ? 'directly to' : 'connected to';
-        const attemptAddrs   = unique(rows.map(r => formatAddr(r['Output Address'])));
-        const attemptSuffix  = attemptAddrs.length === 0
-          ? ''
-          : attemptAddrs.length > 5
-            ? ' — (refer to CSV for addresses)'
-            : ' - ' + attemptAddrs.join(', ');
         return [
-          `WITHDRAWAL ATTEMPTS${attemptSuffix}`,
+          `WITHDRAWAL ATTEMPTS - ADD ATTEMPT ADDRESS`,
           ``,
           `${datePart}, the user made ${count} ${noun} ${expDesc} ${entityStr}, for a total of ${amtStr} USD (at the time of the transfer).`
         ].join('\n');
@@ -472,7 +466,7 @@
       if (txCategory === 'DEPOSIT') {
         const noun     = count === 1 ? 'deposit' : 'deposits';
         const expLabel = isDirect ? 'with direct exposure to' : 'with indirect exposure to';
-        const header   = isDirect ? 'DEPOSITS — DIRECT' : `DEPOSITS — INDIRECT - ${entityStr}`;
+        const header   = isDirect ? 'DEPOSITS — DIRECT' : 'DEPOSITS — INDIRECT - ADD ENTITY NAME';
 
         const internalAddrs = unique(rows.map(r => formatAddr(r['Output Address'])));
         const internalAddr  = internalAddrs.length ? internalAddrs.join(', ') : 'N/A';
@@ -498,7 +492,7 @@
       {
         const noun     = count === 1 ? 'withdrawal' : 'withdrawals';
         const expLabel = isDirect ? 'directly to' : 'with indirect exposure to';
-        const header   = isDirect ? 'WITHDRAWALS — DIRECT' : `WITHDRAWALS — INDIRECT - ${entityStr}`;
+        const header   = isDirect ? 'WITHDRAWALS — DIRECT' : 'WITHDRAWALS — INDIRECT - ADD ENTITY NAME';
 
         const extAddrs = unique(rows.map(r => formatAddr(r['Output Address'])));
         const extList  = extAddrs.length === 0
