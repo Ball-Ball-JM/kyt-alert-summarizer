@@ -106,8 +106,13 @@
     .drop-zone-sm.loaded .sm-file-status { color: #16a34a; }
 
     /* ── Generate button ───────────────────────── */
+    .btn-generate-group {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
     .btn-generate {
-      width: 100%;
+      flex: 1;
       padding: 13px;
       background: #2563eb;
       color: #fff;
@@ -118,7 +123,6 @@
       cursor: pointer;
       letter-spacing: 0.01em;
       transition: background 0.15s, opacity 0.15s;
-      margin-bottom: 16px;
     }
     .btn-generate:hover:not(:disabled) { background: #1d4ed8; }
     .btn-generate:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -247,7 +251,10 @@
       <p class="sm-file-status" id="fileLabel2">Not loaded</p>
     </div>
 
-    <button class="btn-generate" id="genBtn" disabled>Generate Summary</button>
+    <div class="btn-generate-group">
+      <button class="btn-generate" id="genBtnRetain" disabled>Retain + Warning Summary</button>
+      <button class="btn-generate" id="genBtnOffboard" disabled>Offboard Summary</button>
+    </div>
 
     <div class="report-table-wrap" id="reportTableWrap" hidden>
       <div class="tbl-header">Transaction Summary</div>
@@ -557,7 +564,7 @@
     }
 
     function buildNarrative(filtered, td) {
-      const intro       = `The suspicious activity involves a series of ${td.assetStr} transactions totaling ${td.amountStr} (as of the time of transaction) from an external wallet between ${td.start} and ${td.end}. This activity was flagged by Chainalysis / Elliptic during real-time monitoring and retrospective analysis.`;
+      const intro       = `The suspicious activity involves a series of ${td.assetStr} transactions totaling ${td.amountStr} (as of the time of transaction) from an external wallet between ${td.start} and ${td.end}. This activity was flagged by blockchain analytics tools during [real-time monitoring/retrospective analysis], triggering an immediate internal review to determine the nature of the user's intent and the level of regulatory risk posed to the platform.`;
       const boilerplate = `Chainalysis / Elliptic, a blockchain analytics provider, utilizes proprietary clustering algorithms and attribution data to identify wallet addresses. It is important to note that screening is conducted based on information available at the time of the transaction. Should an address receive a risk designation at a later date, the wallet addresses or transactions may be flagged retrospectively.`;
       const userLine    = `The user, [NAME] (UID XXXXXX ), registered on [Registration Date], is [Nationality] verified with a [Issue Country+ID type], ID number [XXXXXX].`;
       return [intro, boilerplate, userLine].join('\n\n');
@@ -588,7 +595,7 @@
 
     // ── Report entry point ─────────────────────────────────────────────────
 
-    function buildReport(allAlerts) {
+    function buildReport(allAlerts, mode) {
       const filtered = filterAlerts(allAlerts);
       if (!filtered.length) {
         reportTableWrap.hidden = true;
@@ -618,12 +625,25 @@
       renderReportTable(td);
       reportTableWrap.hidden = false;
 
-      const rfi = [
-        'RFI - RESPONSE',
-        '',
-        'ACCOUNT STATUS',
-        "Upon identification of the suspicious transactions, the transaction is rejected / refunded to a clean external address, and the user's account was restricted on [Alert Triggered Date], and the account balance of USD [Account Balance] (as of the time of reporting). The user has been instructed to be off-boarded from the platform, with any remaining balance to be withdrawn."
-      ].join('\n');
+      let rfi;
+      if (mode === 'retain') {
+        rfi = [
+          'RFI - RESPONSE',
+          '',
+          '  - Upon identification of the suspicious activity, a Request for Information (RFI) was formally triggered on [Date] to seek clarification regarding the purpose of the transaction and the user\'s relationship with the recipient. The account was restricted on [Alert Triggered Date] to prevent further risk exposure; however, as of the date of this report, the user has not provided a response to the pending inquiries.',
+          '',
+          'Despite the lack of direct communication from the user, a comprehensive review of the account\'s internal action history shows no other red flags, and the account balance has remained stable at USD [Account Balance], suggesting that the lack of response may be due to the retail nature of the account rather than a willful evasion of compliance procedures.',
+          '',
+          '  - Upon a risk-based review of the findings, the Compliance team recommends retaining the user with a formal warning. Given that the transaction amount falls below the internal threshold for mandatory account termination / there is no prior history of attempts or exposure with any risky entities, and the incident appears to be an isolated oversight rather than a systematic attempt to facilitate illicit financial flows.  The proposed mitigation strategy involves issuing a final warning via email that outlines the prohibition of transactions with high risk entities and the consequences of future violations, after which account functions will be restored. To ensure ongoing compliance, the user will be placed on an internal watchlist for enhanced monitoring to verify that no further high-risk connections occur.'
+        ].join('\n');
+      } else {
+        rfi = [
+          'RFI - RESPONSE',
+          '',
+          'ACCOUNT STATUS',
+          "Upon identification of the suspicious transactions, the transaction is rejected / refunded to a clean external address, and the user's account was restricted on [Alert Triggered Date], and the account balance of USD [Account Balance] (as of the time of reporting). The user has been instructed to be off-boarded from the platform, with any remaining balance to be withdrawn."
+        ].join('\n');
+      }
 
       reportCopyText = narrative + '\n\n\n' + paragraphs + '\n\n\n' + rfi;
       return reportCopyText;
@@ -637,7 +657,8 @@
     const dropZone2  = document.getElementById('dropZone2');
     const fileInput2 = document.getElementById('fileInput2');
     const fileLabel2 = document.getElementById('fileLabel2');
-    const genBtn     = document.getElementById('genBtn');
+    const genBtnRetain   = document.getElementById('genBtnRetain');
+    const genBtnOffboard = document.getElementById('genBtnOffboard');
     const outputWrap = document.getElementById('outputWrap');
     const outputPre  = document.getElementById('outputPre');
     const copyBtn    = document.getElementById('copyBtn');
@@ -658,7 +679,8 @@
           if (!loadedAlerts.length) { setError('The CSV appears empty or has no data rows.'); return; }
           fileLabel.textContent = `${file.name}  —  ${loadedAlerts.length} alert${loadedAlerts.length !== 1 ? 's' : ''} loaded`;
           dropZone.classList.add('loaded');
-          genBtn.disabled   = false;
+          genBtnRetain.disabled   = false;
+          genBtnOffboard.disabled = false;
           outputWrap.hidden      = true;
           reportTableWrap.hidden = true;
         } catch (err) { setError(`Parse error: ${err.message}`); }
@@ -702,10 +724,18 @@
     });
     fileInput2.addEventListener('change', () => loadTransfersFile(fileInput2.files[0]));
 
-    genBtn.addEventListener('click', () => {
+    genBtnRetain.addEventListener('click', () => {
       setError('');
       try {
-        outputPre.textContent = buildReport(loadedAlerts);
+        outputPre.textContent = buildReport(loadedAlerts, 'retain');
+        outputWrap.hidden = false;
+      } catch (err) { setError(`Error: ${err.message}`); }
+    });
+
+    genBtnOffboard.addEventListener('click', () => {
+      setError('');
+      try {
+        outputPre.textContent = buildReport(loadedAlerts, 'offboard');
         outputWrap.hidden = false;
       } catch (err) { setError(`Error: ${err.message}`); }
     });
